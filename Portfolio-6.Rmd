@@ -1,0 +1,151 @@
+---
+title: "Portfolio 6: Exploratory Analyses"
+Date: "4/22/2025"
+output: html_document
+---
+
+```{r initial, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+The purpose of these analyses was to explore whether any of the additional variables measured (such as depression, intimacy, confidence) would moderate the relationship between self- and partner-reports of posttratumatic growth. For example, we thought that higher 'thoughtfulness' in response may lead to higher corroboration, i.e. a higher trait-level agreement.I hate to spoil it for you, but all moderators were null, thus why the main analysis part got sheered down a little. Nonetheless, lets see if its easy to run these in R!
+
+```{r setup}
+
+library(tidyverse)
+
+exploring_data <- readRDS("secondary_data.rds")
+
+names(exploring_data)
+
+```
+
+
+```{r means_means_means_and_more_means}
+exploring_data <- exploring_data %>%
+  mutate(
+     T_SRGSR_mean = rowMeans(select(., starts_with("T_SRGSR_")), na.rm = TRUE),
+    I_SRGSR_mean = rowMeans(select(., starts_with("I_SRGSR_")), na.rm = TRUE),
+        T_PRQCS_mean = rowMeans(select(., starts_with("T_PRQCS_")), na.rm = TRUE),
+    I_PRQCS_mean = rowMeans(select(., starts_with("I_PRQCS_")), na.rm = TRUE),
+    T_DASS_mean = rowMeans(select(., starts_with("T_DASS_")), na.rm = TRUE),
+    T_IH_mean = rowMeans(select(., starts_with("T_IH_")), na.rm = TRUE),
+    T_MSPSS_mean = rowMeans(select(., starts_with("T_MSPSS_")), na.rm = TRUE),
+    
+    T_TTCS_1R = 6 - T_TTCS_1,
+    T_TTCS_2R = 6 - T_TTCS_2,
+    T_TTCS_3R = 6 - T_TTCS_3,
+    T_TTCS_13R = 6 - T_TTCS_13,
+    T_TTCS_14R = 6 - T_TTCS_14,
+    T_TTCS_15R = 6 - T_TTCS_15,
+    
+    T_PRS_1R = 6 - T_PRS_1,
+    T_PRS_2R = 6 - T_PRS_2,
+    T_PRS_4R = 6 - T_PRS_4,
+    T_PRS_6R = 6 - T_PRS_6,
+    T_PRS_8R = 6 - T_PRS_8,
+    T_PRS_9R = 6 - T_PRS_9,
+    T_PRS_10R = 6 - T_PRS_10,
+    T_PRS_11R = 6 - T_PRS_11
+  )
+
+exploring_data <- exploring_data %>%
+  mutate(
+    T_TTCS_mean = rowMeans(select(., T_TTCS_4:T_TTCS_12, 
+                                  T_TTCS_1R, T_TTCS_2R, T_TTCS_3R, 
+                                  T_TTCS_13R, T_TTCS_14R, T_TTCS_15R), na.rm = TRUE),
+    
+    T_PRS_mean = rowMeans(select(., T_PRS_3, T_PRS_5, T_PRS_7, 
+                                 T_PRS_1R, T_PRS_2R, T_PRS_4R, T_PRS_6R,
+                                 T_PRS_8R, T_PRS_9R, T_PRS_10R, T_PRS_11R), na.rm = TRUE)
+  )
+
+exploring_data %>%
+  select(ends_with("_mean")) %>%
+  summary()
+
+exploring_data <- exploring_data %>%
+  mutate(across(
+    c(T_SRGSR_mean,
+      T_Confidence, I_Confidence,
+      T_Thoughtfulness, I_Thoughtfulness,
+      T_IH_mean, T_TTCS_mean, T_PRS_mean),
+    ~ scale(., center = TRUE, scale = FALSE),
+    .names = "{.col}_c"
+  ))
+
+```
+
+
+```{r moderator_analyses}
+library(jtools)
+
+model_tconf <- lm(I_SRGSR_mean ~ T_SRGSR_mean_c * T_Confidence_c, data = exploring_data)
+
+model_iconf <- lm(I_SRGSR_mean ~ T_SRGSR_mean_c * I_Confidence_c, data = exploring_data)
+
+model_tthought <- lm(I_SRGSR_mean ~ T_SRGSR_mean_c * T_Thoughtfulness_c, data = exploring_data)
+
+model_ithought <- lm(I_SRGSR_mean ~ T_SRGSR_mean_c * I_Thoughtfulness_c, data = exploring_data)
+
+model_ih <- lm(I_SRGSR_mean ~ T_SRGSR_mean_c * T_IH_mean_c, data = exploring_data)
+
+model_ttcs <- lm(I_SRGSR_mean ~ T_SRGSR_mean_c * T_TTCS_mean_c, data = exploring_data)
+
+model_prs <- lm(I_SRGSR_mean ~ T_SRGSR_mean_c * T_PRS_mean_c, data = exploring_data)
+
+summ(model_tconf, digits = 3, confint = TRUE, scale = TRUE)
+summ(model_iconf, digits = 3, confint = TRUE, scale = TRUE)
+summ(model_tthought, digits = 3, confint = TRUE, scale = TRUE)
+summ(model_ithought, digits = 3, confint = TRUE, scale = TRUE)
+summ(model_ih, digits = 3, confint = TRUE, scale = TRUE)
+summ(model_ttcs, digits = 3, confint = TRUE, scale = TRUE)
+summ(model_prs, digits = 3, confint = TRUE, scale = TRUE)
+
+
+```
+
+```{r APA_it_up}
+
+library(tibble)
+library(knitr)
+library(kableExtra)
+
+apa_mmr_table <- tibble(
+  Moderator = c(
+    "T Confidence", "I Confidence", 
+    "T Thoughtfulness", "I Thoughtfulness", 
+    "T Intellectual Humility", 
+    "T Trait-Truthfulness", "T Patience"
+  ),
+  `B (Interaction)` = c(
+    -0.08, 0.07, -0.12, 0.08, -0.10, -0.04, 0.07
+  ),
+  `95% CI` = c(
+    "[-0.21, 0.06]", "[-0.06, 0.20]", "[-0.25, 0.01]", "[-0.09, 0.24]",
+    "[-0.22, 0.03]", "[-0.17, 0.09]", "[-0.07, 0.20]"
+  ),
+  `p` = c(
+    "= .268", "= .312", "= .073", "= .359", "= .138", "= .569", "= .313"
+  )
+)
+
+apa_mmr_table %>%
+  kable(
+    format = "html",
+    align = c("l", "c", "c", "c"),
+    col.names = c("Moderator", "*B*", "95% CI", "*p*"),
+    caption = "<b>Table 2</b><br><em>Moderated Multiple Regression Results: Interaction Between Target PTG and Exploratory Moderators in Predicting Informant PTG</em>"
+  ) %>%
+  kable_styling(
+    full_width = FALSE,
+    position = "center",
+    html_font = "Times New Roman"
+  ) %>%
+  row_spec(0, bold = TRUE) %>%
+  column_spec(1:4, extra_css = "border-top: none; border-bottom: none;") %>%
+  add_header_above(c(" " = 4))
+
+```
+
+Unsurprisingly, it is much cleaner and easier to do these analyses in R, I might have been won over from SPSS!

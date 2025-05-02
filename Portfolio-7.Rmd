@@ -1,0 +1,141 @@
+---
+title: "Portfolio 7: Next Steps"
+Date: "04/23/2025"
+output: github_document
+---
+
+My thesis project was a loose replication of a project that look at self-other agreement in a Sri Lankan sample of trauma surviviors. One big difference was the scale used, and the posttraumatic growth inventory (PTGI) used in the previous study is multidimensional. What this allows is a deeper dive into the level of agreement by being able to unpack 'normative' and 'distinctive' elements of agreement at the domain-level. This allows a much more confident interpretation of any observed agreement, by being able to say that pairs don't all agree in broad normative way, and that the agreement is distinctive and unique to each pair. Fortunately, the previous study uploaded all their data and R-Script to an online repository. So, the purpose of this study is to try and replicate their analysis, which will be something I want to do it in future projects - perhaps even one this semester I am looking at with relationship satisfaction among couples. The following is directly copied from that project:
+
+"All analyses were conducted in R version 4.1.0 (R Core Team, 2022) using the packages lavaan (Rosseel, 2012), lme4 (Bates et al., 2015), MBESS (Kelley, 2017), multicon (Sherman, 2015), psych (Revelle, 2018), semTools (Jorgensen et al., 2018), sjPlot (Lüdecke, 2021a), sjstats (Lüdecke, 2021b), and tidyverse (Wickham et al., 2019). Syntax and data to reproduce analyses are available at https://osf.io/2hp7q." (Reynolds et al., 2022)
+
+```{r Setup, include=FALSE}
+
+library(multicon)
+library(lavaan)    
+library(lme4)     
+library(MBESS)     
+library(multicon)   
+library(psych)   
+library(semTools) 
+library(sjPlot)    
+library(sjstats)   
+library(tidyverse)  
+library(haven)
+library(dplyr)
+library(datawizard)
+
+SL <- read_sav("OSF_data.sav")
+
+```
+```{r glance}
+
+names(SL)
+
+```
+
+```{r Profile-function}
+Profile.cjr <- function(x.set, y.set, nomiss = 0.8, distinct = TRUE, trim = TRUE) {
+  valids <- apply(cbind(x.set, y.set), 1, function(z) {
+    valid.pairs(z[1:ncol(x.set)], z[-(1:ncol(x.set))])$Pct
+  })
+
+  mat <- suppressWarnings(cor(t(x.set), t(y.set), use = "pair"))
+  if (trim) {
+    mat[mat == 1]  <- 0.9999999
+    mat[mat == -1] <- -0.9999999
+  }
+  overall.r <- diag(mat)
+  overall.r[valids < nomiss] <- NA
+
+  baseline <- mean(psych::fisherz(mat[upper.tri(mat)]), na.rm = TRUE)
+
+  x.Norm <- colMeans(x.set, na.rm = TRUE)
+  y.Norm <- colMeans(y.set, na.rm = TRUE)
+  x.dist <- multicon::temp.resid(x.Norm, x.set, nomiss = nomiss)
+  y.dist <- multicon::temp.resid(y.Norm, y.set, nomiss = nomiss)
+  mat2 <- suppressWarnings(cor(t(x.dist), t(y.dist), use = "pair"))
+  if (trim) {
+    mat2[mat2 == 1]  <- 0.9999999
+    mat2[mat2 == -1] <- -0.9999999
+  }
+  dist.r <- diag(mat2)
+  dist.r[valids < nomiss] <- NA
+
+  overall.test <- t.test(psych::fisherz(overall.r), mu = baseline)
+  dist.test    <- t.test(psych::fisherz(dist.r),    mu = 0)
+
+  tests <- data.frame(
+    Agreement = c(
+      N        = sum(!is.na(overall.r)),
+      Mean     = psych::fisherz2r(mean(psych::fisherz(overall.r), na.rm = TRUE)),
+      Baseline = psych::fisherz2r(baseline),
+      t        = overall.test$statistic,
+      p.value  = overall.test$p.value
+    ),
+    Distinctive = c(
+      N        = sum(!is.na(dist.r)),
+      Mean     = psych::fisherz2r(mean(psych::fisherz(dist.r), na.rm = TRUE)),
+      Baseline = 0,
+      t        = dist.test$statistic,
+      p.value  = dist.test$p.value
+    )
+  )
+
+  list(
+    Agreement = data.frame(Overall = overall.r, Distinctive = dist.r),
+    Tests     = round(tests, 3)
+  )
+}
+```
+
+## Load and prepare data
+
+```{r load-data}
+
+SL <- SL %>% mutate(
+  self_relating_g = ifelse(rowSums(!is.na(select(., ptgi42_6b, ptgi42_8b, ptgi42_9a, ptgi42_15b, ptgi42_16a, ptgi42_20b, ptgi42_21a))) >= 4,
+                          rowMeans(select(., ptgi42_6b, ptgi42_8b, ptgi42_9a, ptgi42_15b, ptgi42_16a, ptgi42_20b, ptgi42_21a), na.rm = TRUE), NA),
+  self_possibilities_g = ifelse(rowSums(!is.na(select(., ptgi42_3a, ptgi42_7a, ptgi42_11a, ptgi42_14b, ptgi42_17b))) >= 3,
+                                rowMeans(select(., ptgi42_3a, ptgi42_7a, ptgi42_11a, ptgi42_14b, ptgi42_17b), na.rm = TRUE), NA),
+  self_strength_g = ifelse(rowSums(!is.na(select(., ptgi42_4b, ptgi42_10b, ptgi42_12b, ptgi42_19a))) >= 2,
+                           rowMeans(select(., ptgi42_4b, ptgi42_10b, ptgi42_12b, ptgi42_19a), na.rm = TRUE), NA),
+  self_spiritual_g = ifelse(rowSums(!is.na(select(., ptgi42_5a, ptgi42_18b))) >= 1,
+                            rowMeans(select(., ptgi42_5a, ptgi42_18b), na.rm = TRUE), NA),
+  self_appreciation_g = ifelse(rowSums(!is.na(select(., ptgi42_1a, ptgi42_2b, ptgi42_13a))) >= 2,
+                               rowMeans(select(., ptgi42_1a, ptgi42_2b, ptgi42_13a), na.rm = TRUE), NA),
+
+  acq_relating_g = ifelse(rowSums(!is.na(select(., pptgi42_6b, pptgi42_8b, pptgi42_9a, pptgi42_15b, pptgi42_16a, pptgi42_20b, pptgi42_21a))) >= 4,
+                          rowMeans(select(., pptgi42_6b, pptgi42_8b, pptgi42_9a, pptgi42_15b, pptgi42_16a, pptgi42_20b, pptgi42_21a), na.rm = TRUE), NA),
+  acq_possibilities_g = ifelse(rowSums(!is.na(select(., pptgi42_3a, pptgi42_7a, pptgi42_11a, pptgi42_14b, pptgi42_17b))) >= 3,
+                               rowMeans(select(., pptgi42_3a, pptgi42_7a, pptgi42_11a, pptgi42_14b, pptgi42_17b), na.rm = TRUE), NA),
+  acq_strength_g = ifelse(rowSums(!is.na(select(., pptgi42_4b, pptgi42_10b, pptgi42_12b, pptgi42_19a))) >= 2,
+                          rowMeans(select(., pptgi42_4b, pptgi42_10b, pptgi42_12b, pptgi42_19a), na.rm = TRUE), NA),
+  acq_spiritual_g = ifelse(rowSums(!is.na(select(., pptgi42_5a, pptgi42_18b))) >= 1,
+                           rowMeans(select(., pptgi42_5a, pptgi42_18b), na.rm = TRUE), NA),
+  acq_appreciation_g = ifelse(rowSums(!is.na(select(., pptgi42_1a, pptgi42_2b, pptgi42_13a))) >= 2,
+                              rowMeans(select(., pptgi42_1a, pptgi42_2b, pptgi42_13a), na.rm = TRUE), NA)
+)
+
+self_g_prof <- SL %>%
+  select(self_relating_g, self_possibilities_g, self_strength_g, self_spiritual_g, self_appreciation_g)
+acq_g_prof  <- SL %>%
+  select(acq_relating_g, acq_possibilities_g, acq_strength_g, acq_spiritual_g, acq_appreciation_g)
+```
+
+```{r profile-analysis}
+result_g <- Profile.cjr(
+  x.set    = self_g_prof,
+  y.set    = acq_g_prof,
+  nomiss   = 0.8,
+  distinct = TRUE,
+  trim     = TRUE
+)
+
+knitr::kable(head(result_g$Agreement), 
+             caption = "Sample Individual Agreement Scores")
+
+knitr::kable(result_g$Tests, 
+             caption = "Profile Agreement Tests: Overall and Distinctive")
+```
+
+This is definitely doing something, but no matter what adjustments I (and Chat) make, i can't seem to replicate the overall and distinctive agreement exactly. It is mirroring their results so I think its on the right track, but a few packages and commands were expired / not upto the current R version, so perhaps that is the issue. If that is, then even with OSF repositories these days it is still so hard to replicate someone analyses. Either way this was a great learning experience. 

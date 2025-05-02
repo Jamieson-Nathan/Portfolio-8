@@ -1,0 +1,108 @@
+---
+title: "Portfolio-2"
+author: "Jamieson"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+For this portfolio piece, I have taken the opportunity to complete a task for my RAship, in which he asked me to create a visually appealing / informative way to describe the demographics of a study he is presenting on at the WISE conference.I decided to give him the option of two separate charts, or the faceted combined figure at the end. Hopefully it is good enough for him (and you)! It was a good experience at handling and cleaning real data to create something I will actually use. 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+data <- read.csv("C:/Users/jamie/Documents/GitHub/Portfolio-2/RAISE Center Data.csv", stringsAsFactors = FALSE)
+
+str(data)
+
+head(data)
+
+names(data)
+
+summary(data)
+
+
+```
+
+``` {r cleaning}
+
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+
+# Splitting gender and sexual orientation
+data$Gender_Identity <- data$Please.select.your.gender.identity.ies...select.all.that.apply.....Selected.Choice
+data$Sexual_Orientation <- data$Please.indicate.if.you.identify.as.any.of.the.following..you.can.select.multiple....Selected.Choice
+
+# Create simplified ethnic labels
+data <- data %>%
+  mutate(Ethnicity = case_when(
+    grepl("White/ European", Please.select.your.ethnic.identity.ies..) ~ "White",
+    grepl("Black/ African", Please.select.your.ethnic.identity.ies..) ~ "Black",
+    grepl("Asian", Please.select.your.ethnic.identity.ies..) ~ "Asian",
+    grepl("Latin", Please.select.your.ethnic.identity.ies..) ~ "Latino",
+    grepl("American Indian", Please.select.your.ethnic.identity.ies..) ~ "Indigenous",
+    TRUE ~ "Other"
+  ))
+
+```
+
+``` {r first}
+
+# Preparing data for sexual orientation chart
+orientation_data <- data %>%
+  separate_rows(Sexual_Orientation, sep = ",") %>%
+  group_by(Sexual_Orientation, Ethnicity) %>%
+  summarise(n = n(), .groups = 'drop') %>%
+  filter(n >= 3)  # Filtering for visual clarity
+
+# Creating the bar chart for sexual orientation
+ggplot(orientation_data, aes(x = Sexual_Orientation, y = n, fill = Ethnicity)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  labs(title = "Distribution of Sexual Orientation by Ethnic Group",
+       x = "Sexual Orientation", y = "") +
+  scale_fill_brewer(palette = "Pastel1") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+```
+
+``` {r second}
+
+# Preparing data for gender identity chart
+gender_data <- data %>%
+  separate_rows(Gender_Identity, sep = ",") %>%
+  group_by(Gender_Identity, Ethnicity) %>%
+  summarise(n = n(), .groups = 'drop') %>%
+  filter(n >= 2)  # Filtering for visual clarity
+
+# Creating the bar chart for gender identity
+ggplot(gender_data, aes(x = Gender_Identity, y = n, fill = Ethnicity)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  labs(title = "Distribution of Gender Identity by Ethnic Group",
+       x = "Gender Identity", y = "") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```
+
+``` {r ultimate}
+
+# Combined data preparation
+combined_data <- data %>%
+  gather(key = "Type", value = "Identity", Gender_Identity, Sexual_Orientation) %>%
+  separate_rows(Identity, sep = ",") %>%
+  count(Type, Identity, Ethnicity) %>%
+  filter(n >= 2) # again, for clarity
+
+# Creating faceted charts
+ggplot(combined_data, aes(x = Identity, y = n, fill = Ethnicity)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  facet_wrap(~ Type, scales = "free_x") +
+  labs(title = "Distribution of Gender Identity and Sexual Orientation by Ethnic Group",
+       x = "", y = "") +
+  scale_fill_brewer(palette = "Pastel") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+```

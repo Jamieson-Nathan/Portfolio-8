@@ -1,0 +1,135 @@
+---
+title: "Portfolio 1: IMDB Deep Dive"
+author: "Jamieson Nathan"
+date: "2025-02-05"
+output: html_document
+---
+
+So for this initial portfolio piece I wanted to look at a general IMDB dataset and run some basic data anaylyses before looking at my own personal IMDb watchlist to see some unique data! Hopefully not too ugly for a first portfolio...
+
+```{r open_packages}
+
+# Load the libraries
+library(ggplot2)
+library(dplyr)
+library(readr)
+library(ggplot2movies)
+
+```
+
+```{r initial_peak}
+
+# Load the dataset
+data("movies")
+
+# View the first few rows
+head(movies)
+
+# Check rough structure of dataset
+glimpse(movies)
+
+```
+
+```{r data_clean}
+
+# Select columns we want and remove NA's
+movies_clean <- movies %>%
+  select(title, year, length, rating, votes, mpaa, Action, Drama, Comedy) %>%
+  filter(!is.na(rating), !is.na(votes))
+
+# View summary of cleaned dataset
+summary(movies_clean)
+
+```
+
+```{r first_visual}
+
+ggplot(movies_clean, aes(x = rating)) +
+  geom_histogram(binwidth = 0.5, fill = "blue", color = "black", alpha = 0.7) +
+  labs(title = "Distribution of IMDb Ratings", x = "IMDb Rating", y = "Count") +
+  theme_minimal()
+
+```
+
+```{r popular_movies}
+
+
+# Set the minimum number of votes
+min_votes <- 1000
+
+# Filter movies with at least min_votes
+popular_movies <- movies %>%
+  filter(votes >= min_votes)
+
+# Get the top 10 highest-rated movies
+top_rated_movies <- popular_movies %>%
+  arrange(desc(rating)) %>%
+  select(title, year, rating, votes) %>%
+  head(20)
+
+# Display the top 10 movies
+top_rated_movies
+
+
+```
+
+```{r second_visual}
+
+# Create a bar plot of the top 10 highest-rated movies
+ggplot(top_rated_movies, aes(x = reorder(title, rating), y = rating)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  coord_flip() +
+  labs(title = "Top 20 Highest-Rated Movies",
+       x = "Movie Title",
+       y = "Average IMDb Rating") +
+  theme_minimal()
+
+```
+
+```{r my_watchlist}
+
+library(tidyverse)
+
+# I exported my IMDB watch list as a csv file
+watchlist <- read_csv("C:/Users/jamie/Documents/GitHub/Portfolio-1/My Watchlist.csv")
+
+# View the first few rows
+head(watchlist)
+glimpse(watchlist)
+
+```
+
+```{r comparison}
+
+ggplot(watchlist, aes(x = `IMDb Rating`, y = `Your Rating`)) +
+  geom_point(alpha = 0.6, color = "blue") +
+  geom_smooth(method = "lm", color = "red") +  
+  labs(title = "My Ratings vs. IMDb Ratings",
+       x = "IMDb Rating", y = "Your Rating") +
+  theme_minimal()
+
+```
+
+```{r where_we_disagree}
+
+# Create "outliers" 
+outliers <- watchlist %>%
+  mutate(Difference = `Your Rating` - `IMDb Rating`)
+
+top_outliers <- outliers %>% 
+  slice_max(abs(Difference), n = 30)  # Get top 30 biggest differences to look orderly
+
+ggplot(top_outliers, aes(x = reorder(Title, Difference), y = Difference, fill = Difference > 0)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  labs(title = "Top 30 Movies We Disagree On",
+       x = "Title",
+       y = "Difference (Your Rating - IMDb Rating)") +
+  scale_fill_manual(values = c("red", "blue"), labels = c("Lower Than IMDb", "Higher Than IMDb")) +
+  theme_minimal() +
+  theme(text = element_text(size = 16),
+        axis.text.y = element_text(size = 8),
+        plot.title = element_text(size = 20, face = "bold"))
+
+
+```

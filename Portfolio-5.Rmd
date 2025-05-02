@@ -1,0 +1,82 @@
+---
+title: "Portfolio 5: Main Analysis"
+Date: "4/22/2025"
+output: html_document
+---
+
+```{r initial, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+So now for the bread and butter of my thesis analysis. 
+
+```{r setup}
+
+library(tidyverse)
+library(psych)
+
+thesis_data <- readRDS("thesis_data.rds")
+
+names(thesis_data)
+
+```
+
+```{r first_steps}
+
+thesis_data <- thesis_data %>%
+  mutate(
+    T_SRGSR_mean = rowMeans(select(., starts_with("T_SRGSR_")), na.rm = TRUE),
+    I_SRGSR_mean = rowMeans(select(., starts_with("I_SRGSR_")), na.rm = TRUE)
+  )
+
+srgsr_cor <- corr.test(
+  thesis_data %>% select(T_SRGSR_mean, I_SRGSR_mean),
+  use = "pairwise.complete.obs",
+  method = "pearson",
+  adjust = "none",
+  ci = TRUE
+)
+
+print(srgsr_cor, short = FALSE)
+
+```
+
+```{r APA_Style}
+
+library(tibble)
+library(knitr)
+library(kableExtra)
+
+r_val <- round(srgsr_cor$r[1,2], 2)
+ci_lower <- round(srgsr_cor$ci[1,1], 2)
+ci_upper <- round(srgsr_cor$ci[1,2], 2)
+p_val <- srgsr_cor$p[1,2]
+p_str <- ifelse(p_val < .001, "< .001", paste0("= ", round(p_val, 3)))
+
+apa_corr_table <- tibble(
+  Variables = "Target & Informant PTG",
+  `*r*` = r_val,
+  `95% CI` = paste0("[", ci_lower, ", ", ci_upper, "]"),
+  `*p*` = p_str
+)
+
+apa_corr_table %>%
+  kable(
+    format = "html",
+    col.names = c("Variables", "r", "95% CI", "p"),
+    align = c("l", "c", "c", "c"),
+    caption = "<b>Table 1</b><br><em>Trait-Level Agreement on Posttraumatic Growth.</em>"
+  ) %>%
+  kable_styling(
+    full_width = FALSE,
+    position = "center",
+    html_font = "Times New Roman"
+  ) %>%
+
+    column_spec(1:4, extra_css = "border-top: none; border-bottom: none;") %>%
+  
+  row_spec(0, extra_css = "border-bottom: 1px solid black;")
+
+
+```
+Looking good thus far! This was lowkey all I did for my main analysis (everything else got shifted to exploratory). Next portfolio will look at the exploratory analyses which were a bit more exciting, multiple moderator regression analyses. Stay tuned!
